@@ -1,6 +1,6 @@
 FROM node:alpine
 
-LABEL version="1.0.1" \
+LABEL version="1.0.2" \
       maintainer="wang@rehiy.com"
 
 ENV APP_COPYRIGHT=Example

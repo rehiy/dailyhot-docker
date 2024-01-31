@@ -32,4 +32,4 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64
-          tags: rehiy/daily-hot:latest
+          tags: rehiy/dailyhot:latest
