@@ -1,0 +1,8 @@
+#!/bin/sh
+#
+
+sed -i "s|APP_COPYRIGHT|$APP_COPYRIGHT|g; s|APP_COPYRIGHT_URL|$APP_COPYRIGHT_URL|g" /var/www/webui/assets/*.js
+
+node /var/www/api/index.js &
+
+nginx -g "daemon off;"

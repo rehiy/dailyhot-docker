@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+
+apk add nginx
+
+cp -av /tmp/entrypoint /sbin/
+chmod +x /sbin/entrypoint
+
+cp -av /tmp/nginx.conf /etc/nginx/http.d/default.conf
+
+######
+
+cd /var/www
+
+if [ ! -d /var/www/api ]; then
+    wget https://github.com/imsyy/DailyHotApi/archive/refs/heads/master.tar.gz
+    tar xvf master.tar.gz && mv DailyHotApi-master api
+    rm -f master.tar.gz
+fi
+
+cd /var/www/api
+
+[ -d node_modules ] || npm i
+
+######
+
+cd /var/www
+
+if [ ! -d /var/www/web ]; then
+    wget https://github.com/imsyy/DailyHot/archive/refs/heads/master.tar.gz
+    tar xvf master.tar.gz && mv DailyHot-master web
+    rm -f master.tar.gz
+fi
+
+cd /var/www/web
+
+sed -i 's#"author": "imsyy"#"author": "APP_COPYRIGHT"#' package.json
+sed -i 's#"github": "https://github.com/imsyy"#"github": "APP_COPYRIGHT_RUL"#' package.json
+sed -i "s#Copyright By#$(date +'%Y')#" src/components/Footer.vue
+
+echo "VITE_GLOBAL_API=/api" >.env
+echo "VITE_ICP=" >>.env
+echo "VITE_DIR=" >>.env
+
+[ -d node_modules ] || npm i
+[ -d dist ] || npm run build
+
+mv dist /var/www/webui
+rm -rf /var/www/web
+
+######
+
+rm -rf /tmp/*
