@@ -5,7 +5,7 @@ LABEL version="1.0.3" \
 
 ENV APP_ICP=
 ENV APP_COPYRIGHT=Example
-ENV APP_COPYRIGHT_RUL=http://www.example.org
+ENV APP_COPYRIGHT_URL=http://www.example.org
 
 ADD initfs /tmp
 RUN sh /tmp/deploy

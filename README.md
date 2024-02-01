@@ -8,6 +8,7 @@
 
 ```shell
 docker run -d -p 80 -p 443 \
+    -e APP_ICP="京备ICP12345" \
     -e APP_COPYRIGHT="Example" \
     -e APP_COPYRIGHT_URL="http://www.example.org" \
     rehiy/dailyhot
