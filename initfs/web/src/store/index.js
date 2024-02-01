@@ -124,7 +124,7 @@ export const mainStore = defineStore("mainData", {
         },
         {
           label: "豆瓣讨论小组",
-          name: "doubangroup",
+          name: "douban_group",
           order: 19,
           show: true,
         },
