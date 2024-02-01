@@ -3,9 +3,9 @@
 
 apk add nginx
 
-cp -av /tmp/entrypoint /sbin/
-chmod +x /sbin/entrypoint
+chmod +x /tmp/entrypoint
 
+cp -av /tmp/entrypoint /sbin/
 cp -av /tmp/nginx.conf /etc/nginx/http.d/default.conf
 
 ######
@@ -31,6 +31,8 @@ if [ ! -d /var/www/web ]; then
     tar xvf master.tar.gz && mv DailyHot-master web
     rm -f master.tar.gz
 fi
+
+cp -av /tmp/web/* web/
 
 cd /var/www/web
 
