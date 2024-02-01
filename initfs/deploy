@@ -34,12 +34,12 @@ fi
 
 cd /var/www/web
 
-sed -i 's#"author": "imsyy"#"author": "APP_COPYRIGHT"#' package.json
-sed -i 's#"github": "https://github.com/imsyy"#"github": "APP_COPYRIGHT_RUL"#' package.json
-sed -i "s#Copyright By#$(date +'%Y')#" src/components/Footer.vue
+sed -i "s|Copyright By|$(date +'%Y')|" src/components/Footer.vue
+sed -i 's|"author": "imsyy"|"author": "APP_COPYRIGHT"|' package.json
+sed -i 's|"github": "https://github.com/imsyy"|"github": "APP_COPYRIGHT_RUL"|' package.json
 
 echo "VITE_GLOBAL_API=/api" >.env
-echo "VITE_ICP=" >>.env
+echo "VITE_ICP=APP_ICP" >>.env
 echo "VITE_DIR=" >>.env
 
 [ -d node_modules ] || npm i
