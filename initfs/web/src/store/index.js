@@ -131,12 +131,14 @@ export const mainStore = defineStore("mainData", {
         {
           label: "网易云音乐",
           name: "netease_music_toplist",
+          params: { type: 1 },
           order: 20,
           show: true,
         },
         {
           label: "QQ音乐热歌榜",
           name: "qq_music_toplist",
+          params: { type: 1 },
           order: 21,
           show: true,
         },
