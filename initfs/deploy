@@ -20,6 +20,8 @@ fi
 
 cd /var/www/api
 
+sed -i "s|parent:|title:|" routes/ngabbs.js
+
 [ -d node_modules ] || npm i
 
 ######
