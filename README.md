@@ -4,7 +4,7 @@
 
 ## 快速启动
 
-使用如下代码启动后，浏览器打开 <http://your-domain> 查看WEB界面，打开 <http://your-domain//api/all> 查看所有接口。
+使用如下代码启动后，浏览器打开 <http://www.example.org> 查看WEB界面，打开 <http://www.example.org/api/all> 查看所有接口。
 
 ```shell
 docker run -d -p 80 -p 443 \
