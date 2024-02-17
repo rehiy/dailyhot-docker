@@ -21,6 +21,8 @@ docker run -d -p 80 -p 443 \
 - 修复 历史上的今天 接口参数错误
 - 增加 NGA、Github、V2EX、QQ音乐、网易云音乐、豆瓣小组 卡片
 - 修改前端接口请求方法，支持传递参数
+- 修正版后端 <https://github.com/rehiy/dailyhot-api>
+- 修正版前端 <https://github.com/rehiy/dailyhot-front>
 
 ## 接口总览
 
