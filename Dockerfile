@@ -12,4 +12,4 @@ RUN sh /tmp/deploy
 
 ENTRYPOINT ["/sbin/entrypoint"]
 
-EXPOSE 80 443
+EXPOSE 80

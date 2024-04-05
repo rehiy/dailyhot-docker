@@ -7,7 +7,7 @@
 使用如下代码启动后，浏览器打开 <http://www.example.org> 查看WEB界面，打开 <http://www.example.org/api/all> 查看所有接口。
 
 ```shell
-docker run -d -p 80 -p 443 \
+docker run -d -p 80 \
     -e APP_ICP="京备ICP12345" \
     -e APP_COPYRIGHT="Example" \
     -e APP_COPYRIGHT_URL="http://www.example.org" \
