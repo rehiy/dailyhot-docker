@@ -13,7 +13,7 @@ cp -av /tmp/nginx.conf /etc/nginx/http.d/default.conf
 cd /var/www
 
 if [ ! -d /var/www/api ]; then
-    wget https://github.com/rehiy/dailyhot-api/archive/refs/heads/master.tar.gz
+    wget https://github.com/imsyy/DailyHotApi/archive/refs/heads/master.tar.gz
     tar xvf master.tar.gz && mv dailyhot-api-master api
     rm -f master.tar.gz
 fi
@@ -27,7 +27,7 @@ cd /var/www/api
 cd /var/www
 
 if [ ! -d /var/www/front-build ]; then
-    wget https://github.com/rehiy/dailyhot-front/archive/refs/heads/master.tar.gz
+    wget https://github.com/imsyy/DailyHot/archive/refs/heads/master.tar.gz
     tar xvf master.tar.gz && mv dailyhot-front-master front-build
     rm -f master.tar.gz
 fi
