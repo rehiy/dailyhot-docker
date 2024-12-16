@@ -14,7 +14,7 @@ cd /var/www
 
 if [ ! -d /var/www/api ]; then
     wget https://github.com/imsyy/DailyHotApi/archive/refs/heads/master.tar.gz
-    tar xvf master.tar.gz && mv dailyhot-api-master api
+    tar xvf master.tar.gz && mv DailyHotApi-master api
     rm -f master.tar.gz
 fi
 
@@ -28,7 +28,7 @@ cd /var/www
 
 if [ ! -d /var/www/front-build ]; then
     wget https://github.com/imsyy/DailyHot/archive/refs/heads/master.tar.gz
-    tar xvf master.tar.gz && mv dailyhot-front-master front-build
+    tar xvf master.tar.gz && mv DailyHot-master front-build
     rm -f master.tar.gz
 fi
 
