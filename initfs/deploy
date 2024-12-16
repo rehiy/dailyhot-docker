@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 
-apk add nginx
+apk add nginx redis
 
 chmod +x /tmp/entrypoint
 
@@ -14,13 +14,23 @@ cd /var/www
 
 if [ ! -d /var/www/api ]; then
     wget https://github.com/imsyy/DailyHotApi/archive/refs/heads/master.tar.gz
-    tar xvf master.tar.gz && mv DailyHotApi-master api
+    tar xvf master.tar.gz && mv DailyHotApi-master api-build
     rm -f master.tar.gz
 fi
 
-cd /var/www/api
+cd /var/www/api-build
 
 [ -d node_modules ] || npm i
+[ -d dist ] || npm run build
+
+mv dist /var/www/api
+cp -av package.json /var/www/api/package.json
+cp -av node_modules /var/www/api/node_modules
+cp -av .env.example /var/www/api/.env
+cp -av public /var/www/api/public
+
+mkdir -p /var/www/api/logs
+rm -rf /var/www/api-build
 
 ######
 
