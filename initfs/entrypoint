@@ -1,11 +1,14 @@
 #!/bin/sh
 #
 
+export NODE_ENV=docker
+
 ENV_REPLACER="s|APP_ICP|$APP_ICP|g"
 ENV_REPLACER="$ENV_REPLACER; s|APP_COPYRIGHT_URL|$APP_COPYRIGHT_URL|g"
 ENV_REPLACER="$ENV_REPLACER; s|APP_COPYRIGHT|$APP_COPYRIGHT|g"
 
 sed -i "$ENV_REPLACER" /var/www/front/assets/*.js
 
+redis-server &
 node /var/www/api/index.js &
 nginx -g "daemon off;"
