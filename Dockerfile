@@ -1,6 +1,6 @@
 FROM node:alpine
 
-LABEL version="1.1.2" \
+LABEL version="1.1.3" \
       maintainer="wang@rehiy.com"
 
 ENV APP_ICP=
