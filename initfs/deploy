@@ -1,63 +1,35 @@
 #!/bin/sh
-#
+set -eu
 
-apk add nginx redis
+. /tmp/versions.env
 
-chmod +x /tmp/entrypoint
+fetch_source() {
+    repo="$1"
+    ref="$2"
+    dest="$3"
+    mkdir -p "$dest"
+    wget -O /tmp/source.tar.gz "https://github.com/imsyy/$repo/archive/$ref.tar.gz"
+    tar -xzf /tmp/source.tar.gz -C "$dest" --strip-components=1
+    rm /tmp/source.tar.gz
+}
 
-cp -av /tmp/entrypoint /sbin/
-cp -av /tmp/nginx.conf /etc/nginx/http.d/default.conf
+mkdir -p /var/www
+fetch_source DailyHotApi "$DAILYHOT_API_REF" /tmp/api-build
+cd /tmp/api-build
+pnpm install --frozen-lockfile
+pnpm run build
+pnpm prune --prod
+mkdir -p /var/www/api
+cp -a dist/. /var/www/api/
+cp -a package.json node_modules public /var/www/api/
+cp .env.example /var/www/api/.env
 
-######
-
-cd /var/www
-
-if [ ! -d /var/www/api ]; then
-    wget https://github.com/imsyy/DailyHotApi/archive/refs/heads/master.tar.gz
-    tar xvf master.tar.gz && mv DailyHotApi-master api-build
-    rm -f master.tar.gz
-fi
-
-cd /var/www/api-build
-
-[ -d node_modules ] || npm i
-[ -d dist ] || npm run build
-
-mv dist /var/www/api
-cp -av package.json /var/www/api/package.json
-cp -av node_modules /var/www/api/node_modules
-cp -av .env.example /var/www/api/.env
-cp -av public /var/www/api/public
-
-mkdir -p /var/www/api/logs
-rm -rf /var/www/api-build
-
-######
-
-cd /var/www
-
-if [ ! -d /var/www/front-build ]; then
-    wget https://github.com/imsyy/DailyHot/archive/refs/heads/master.tar.gz
-    tar xvf master.tar.gz && mv DailyHot-master front-build
-    rm -f master.tar.gz
-fi
-
-cd /var/www/front-build
-
+fetch_source DailyHot "$DAILYHOT_REF" /tmp/front-build
+cd /tmp/front-build
 sed -i "s|Copyright By|$(date +'%Y')|" src/components/Footer.vue
 sed -i 's|"author": "imsyy"|"author": "APP_COPYRIGHT"|' package.json
 sed -i 's|"github": "https://github.com/imsyy"|"github": "APP_COPYRIGHT_URL"|' package.json
-
-echo "VITE_GLOBAL_API=/api" >.env
-echo "VITE_ICP=APP_ICP" >>.env
-echo "VITE_DIR=/" >>.env
-
-[ -d node_modules ] || npm i
-[ -d dist ] || npm run build
-
+printf '%s\n' 'VITE_GLOBAL_API=/api' 'VITE_ICP=APP_ICP' 'VITE_DIR=/' > .env
+pnpm install --frozen-lockfile
+pnpm run build
 mv dist /var/www/front
-rm -rf /var/www/front-build
-
-######
-
-rm -rf /tmp/*

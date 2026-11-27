@@ -1,14 +1,38 @@
-#!/bin/sh
-#
+#!/bin/bash
+set -eu
 
-export NODE_ENV=docker
+escape_sed() {
+    printf '%s' "$1" | sed 's/[\\&|]/\\&/g'
+}
 
-ENV_REPLACER="s|APP_ICP|$APP_ICP|g"
-ENV_REPLACER="$ENV_REPLACER; s|APP_COPYRIGHT_URL|$APP_COPYRIGHT_URL|g"
-ENV_REPLACER="$ENV_REPLACER; s|APP_COPYRIGHT|$APP_COPYRIGHT|g"
+# Keep the original assets so restarting the container can reapply settings.
+for asset in /var/www/front/assets/*.js; do
+    [ -f "$asset" ] || continue
+    [ -f "$asset.original" ] || cp "$asset" "$asset.original"
+    sed -e "s|APP_ICP|$(escape_sed "$APP_ICP")|g" \
+        -e "s|APP_COPYRIGHT_URL|$(escape_sed "$APP_COPYRIGHT_URL")|g" \
+        -e "s|APP_COPYRIGHT|$(escape_sed "$APP_COPYRIGHT")|g" \
+        "$asset.original" > "$asset"
+done
 
-sed -i "$ENV_REPLACER" /var/www/front/assets/*.js
+cd /var/www/api
+pids=()
+cleanup() {
+    if (("${#pids[@]}" > 0)); then
+        kill "${pids[@]}" 2>/dev/null || true
+        wait "${pids[@]}" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT
+trap 'exit 0' TERM INT
 
-redis-server &
+redis-server --bind 127.0.0.1 --save "" --appendonly no &
+pids+=("$!")
 node /var/www/api/index.js &
-nginx -g "daemon off;"
+pids+=("$!")
+nginx -g "daemon off;" &
+pids+=("$!")
+
+# A service exiting unexpectedly should stop the container.
+wait -n "${pids[@]}" || exit $?
+exit 1
