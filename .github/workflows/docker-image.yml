@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ github.ref }}" == refs/heads/master && ("$GITHUB_EVENT_NAME" == schedule || "$GITHUB_EVENT_NAME" == workflow_dispatch) ]]; then
+          if [[ "$GITHUB_REF" == refs/heads/master && ("$GITHUB_EVENT_NAME" == schedule || "$GITHUB_EVENT_NAME" == workflow_dispatch) ]]; then
             ./scripts/update-upstream.sh
           fi
           . ./versions.env
