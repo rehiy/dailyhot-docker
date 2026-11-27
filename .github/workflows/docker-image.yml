@@ -2,34 +2,137 @@ name: Docker Image CI
 
 on:
   push:
+    branches: [master]
     paths:
       - 'initfs/**'
       - 'Dockerfile'
+      - 'versions.env'
+      - '.dockerignore'
+      - '.github/workflows/docker-image.yml'
+      - 'scripts/**'
+  pull_request:
+    paths:
+      - 'initfs/**'
+      - 'Dockerfile'
+      - 'versions.env'
+      - '.dockerignore'
+      - '.github/workflows/docker-image.yml'
+      - 'scripts/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '25 3 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dailyhot-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    outputs:
+      changed: ${{ steps.upstream.outputs.changed }}
+      front: ${{ steps.upstream.outputs.front }}
+      api: ${{ steps.upstream.outputs.api }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7.0.1
         with:
-          submodules: "true"
+          persist-credentials: false
+
+      - name: Check upstream revisions
+        id: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/heads/master && ("$GITHUB_EVENT_NAME" == schedule || "$GITHUB_EVENT_NAME" == workflow_dispatch) ]]; then
+            ./scripts/update-upstream.sh
+          fi
+          . ./versions.env
+          echo "front=$DAILYHOT_REF" >> "$GITHUB_OUTPUT"
+          echo "api=$DAILYHOT_API_REF" >> "$GITHUB_OUTPUT"
+          if git diff --quiet -- versions.env; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v4.4.0
+        with:
+          platforms: arm64
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v4.4.1
+
+      - name: Build AMD64 image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          pull: true
+          load: true
+          tags: dailyhot:test-amd64
+
+      - name: Smoke test AMD64
+        run: ./scripts/smoke-test.sh linux/amd64 dailyhot:test-amd64
+
+      - name: Build ARM64 image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          platforms: linux/arm64
+          pull: true
+          load: true
+          tags: dailyhot:test-arm64
+
+      - name: Smoke test ARM64
+        run: ./scripts/smoke-test.sh linux/arm64 dailyhot:test-arm64
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        uses: docker/login-action@v4.8.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v4
+      - name: Publish multi-platform image
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        uses: docker/build-push-action@v7.4.0
         with:
           context: .
           push: true
-          platforms: linux/amd64
-          tags: rehiy/dailyhot:latest
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            rehiy/dailyhot:latest
+            rehiy/dailyhot:build-${{ github.run_id }}-${{ github.run_attempt }}
+          labels: |
+            io.dailyhot.front.revision=${{ steps.upstream.outputs.front }}
+            io.dailyhot.api.revision=${{ steps.upstream.outputs.api }}
+
+  record-upstream:
+    needs: build
+    if: github.ref == 'refs/heads/master' && needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Record successfully published revisions
+        env:
+          FRONT_REF: ${{ needs.build.outputs.front }}
+          API_REF: ${{ needs.build.outputs.api }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$FRONT_REF" =~ ^[0-9a-f]{40}$ && "$API_REF" =~ ^[0-9a-f]{40}$ ]]
+          printf 'DAILYHOT_REF=%s\nDAILYHOT_API_REF=%s\n' "$FRONT_REF" "$API_REF" > versions.env
+          git config user.name "Sea"
+          git config user.email "8297757+rehiy@users.noreply.github.com"
+          git add versions.env
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update DailyHot upstream revisions"
+            git push origin HEAD:refs/heads/master
+          fi

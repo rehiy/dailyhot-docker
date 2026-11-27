@@ -1,27 +1,52 @@
 # 今日热榜
 
-**汇聚全网热点，热门尽览无余**，今日热榜可以为用户提供最新、最热门的信息，尽览各大平台热点，轻松掌握时事动态。该平台整合了互联网上各个领域的热门话题，涵盖新闻、娱乐、科技、社会等多个方面，用户无需漫游多个平台，即可获取丰富多彩的信息。
+聚合各平台热点数据的单容器镜像，包含 DailyHot 前端、DailyHotApi、Nginx 和 Redis。
 
 ## 快速启动
 
-使用如下代码启动后，浏览器打开 <http://www.example.org> 查看WEB界面，打开 <http://www.example.org/api/all> 查看所有接口。
-
-```shell
-docker run -d -p 80 \
+```sh
+docker run -d --name dailyhot --restart unless-stopped -p 80:80 \
     -e APP_ICP="京备ICP12345" \
     -e APP_COPYRIGHT="Example" \
-    -e APP_COPYRIGHT_URL="http://www.example.org" \
-    rehiy/dailyhot
+    -e APP_COPYRIGHT_URL="https://www.example.org" \
+    rehiy/dailyhot:latest
 ```
 
-## 主要更新
+浏览器访问 `http://localhost/` 查看热榜，访问 `http://localhost/api/all` 查看接口列表。
 
-- 合并前端和后端到一个容器
-- 支持修改前端参数
+镜像支持 Linux AMD64 和 ARM64；Node.js 使用 22 系列。Redis 仅监听容器内回环地址，用于非持久化缓存。
 
-## 其他
+## 配置
 
-感谢上游源码维护者的无私奉献，赠人玫瑰、手留余香。
+| 环境变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| APP_ICP | 空 | ICP 备案信息 |
+| APP_COPYRIGHT | Example | 页脚署名 |
+| APP_COPYRIGHT_URL | http://www.example.org | 页脚链接 |
 
-- <https://github.com/imsyy/DailyHot>
-- <https://github.com/imsyy/DailyHotApi>
+前端配置值使用普通单行文本。后端支持上游 API 的缓存时长、请求超时及 Cookie 等环境变量。
+
+## 构建与更新
+
+`versions.env` 记录前端、后端的确切上游 Git Commit。依赖按上游 pnpm 锁文件安装。
+
+```sh
+docker build --pull -t dailyhot:local .
+./scripts/smoke-test.sh linux/amd64 dailyhot:local
+```
+
+GitHub Actions 对 PR 执行双架构构建及启动测试；主分支更新、手动触发及每周定时任务通过测试后发布镜像。
+
+定时任务每周一 03:25 UTC（北京时间 11:25）检查上游并重新构建，以获取基础镜像和系统软件更新。手动运行主分支工作流也会检查上游版本。上游 Commit 发生变化时，仅在镜像成功发布后提交新的版本记录。
+
+Docker Hub 发布标签：
+
+- `latest`：最新通过验证的双架构镜像。
+- `build-<run_id>-<run_attempt>`：对应具体流水线运行的镜像。
+
+镜像 OCI 标签（labels）中同时记录前端和后端的 Git Commit。发布需配置仓库 Secrets `DOCKER_USERNAME`、`DOCKER_PASSWORD`，PR 不使用发布凭据。
+
+## 上游项目
+
+- [DailyHot](https://github.com/imsyy/DailyHot)
+- [DailyHotApi](https://github.com/imsyy/DailyHotApi)
