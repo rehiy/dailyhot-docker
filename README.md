@@ -35,7 +35,7 @@ docker build --pull -t dailyhot:local .
 ./scripts/smoke-test.sh linux/amd64 dailyhot:local
 ```
 
-GitHub Actions 对 PR 执行双架构构建及启动测试；主分支更新、手动触发及每周定时任务通过测试后发布镜像。
+GitHub Actions 使用 AMD64 和 ARM64 原生 Runner 分别构建并运行容器测试，不依赖 QEMU 模拟。主分支更新、手动触发及每周定时任务在两个架构均通过测试后，发布已验证的镜像并合并多架构 manifest。
 
 定时任务每周一 03:25 UTC（北京时间 11:25）检查上游并重新构建，以获取基础镜像和系统软件更新。手动运行主分支工作流也会检查上游版本。上游 Commit 发生变化时，仅在镜像成功发布后提交新的版本记录。
 

@@ -30,9 +30,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  prepare:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 10
     outputs:
       changed: ${{ steps.upstream.outputs.changed }}
       front: ${{ steps.upstream.outputs.front }}
@@ -59,62 +59,109 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4.4.0
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
         with:
-          platforms: arm64
+          persist-credentials: false
+
+      - name: Apply selected upstream revisions
+        env:
+          FRONT_REF: ${{ needs.prepare.outputs.front }}
+          API_REF: ${{ needs.prepare.outputs.api }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$FRONT_REF" =~ ^[0-9a-f]{40}$ && "$API_REF" =~ ^[0-9a-f]{40}$ ]]
+          printf 'DAILYHOT_REF=%s\nDAILYHOT_API_REF=%s\n' "$FRONT_REF" "$API_REF" > versions.env
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4.4.1
 
-      - name: Build AMD64 image
+      - name: Build native image
         uses: docker/build-push-action@v7.4.0
         with:
           context: .
-          platforms: linux/amd64
+          platforms: linux/${{ matrix.arch }}
           pull: true
           load: true
-          tags: dailyhot:test-amd64
+          tags: dailyhot:test-${{ matrix.arch }}
+          labels: |
+            io.dailyhot.front.revision=${{ needs.prepare.outputs.front }}
+            io.dailyhot.api.revision=${{ needs.prepare.outputs.api }}
 
-      - name: Smoke test AMD64
-        run: ./scripts/smoke-test.sh linux/amd64 dailyhot:test-amd64
+      - name: Smoke test native image
+        run: ./scripts/smoke-test.sh linux/${{ matrix.arch }} dailyhot:test-${{ matrix.arch }}
 
-      - name: Build ARM64 image
-        uses: docker/build-push-action@v7.4.0
+      - name: Save tested image
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        run: docker save dailyhot:test-${{ matrix.arch }} | gzip -1 > dailyhot-${{ matrix.arch }}.tar.gz
+        shell: bash
+
+      - name: Upload tested image
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7.0.2
         with:
-          context: .
-          platforms: linux/arm64
-          pull: true
-          load: true
-          tags: dailyhot:test-arm64
+          name: dailyhot-${{ matrix.arch }}
+          path: dailyhot-${{ matrix.arch }}.tar.gz
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 2
+          overwrite: true
 
-      - name: Smoke test ARM64
-        run: ./scripts/smoke-test.sh linux/arm64 dailyhot:test-arm64
+  publish:
+    needs: [prepare, build]
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: dailyhot-*
+          path: images
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.4.1
 
       - name: Login to Docker Hub
-        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
         uses: docker/login-action@v4.8.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Publish multi-platform image
-        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
-        uses: docker/build-push-action@v7.4.0
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            rehiy/dailyhot:latest
-            rehiy/dailyhot:build-${{ github.run_id }}-${{ github.run_attempt }}
-          labels: |
-            io.dailyhot.front.revision=${{ steps.upstream.outputs.front }}
-            io.dailyhot.api.revision=${{ steps.upstream.outputs.api }}
+      - name: Push tested images and publish multi-platform manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          repository=rehiy/dailyhot
+          tag="build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          for arch in amd64 arm64; do
+            docker load --input "images/dailyhot-$arch.tar.gz"
+            [[ "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "dailyhot:test-$arch")" == "linux/$arch" ]]
+            docker tag "dailyhot:test-$arch" "$repository:$tag-$arch"
+            docker push "$repository:$tag-$arch"
+          done
+          docker buildx imagetools create \
+            --tag "$repository:$tag" \
+            --tag "$repository:latest" \
+            "$repository:$tag-amd64" "$repository:$tag-arm64"
+          docker buildx imagetools inspect "$repository:$tag"
 
   record-upstream:
-    needs: build
-    if: github.ref == 'refs/heads/master' && needs.build.outputs.changed == 'true'
+    needs: [prepare, publish]
+    if: github.ref == 'refs/heads/master' && needs.prepare.outputs.changed == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -122,8 +169,8 @@ jobs:
       - uses: actions/checkout@v7.0.1
       - name: Record successfully published revisions
         env:
-          FRONT_REF: ${{ needs.build.outputs.front }}
-          API_REF: ${{ needs.build.outputs.api }}
+          FRONT_REF: ${{ needs.prepare.outputs.front }}
+          API_REF: ${{ needs.prepare.outputs.api }}
         shell: bash
         run: |
           set -euo pipefail
